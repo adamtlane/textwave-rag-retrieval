@@ -17,15 +17,20 @@ Fixed length chunking (128 characters with 32 characters of overlap) and an HNSW
 
 ### Answer generation
 
-Answer quality stayed low across Mistral small, medium, and large models, with exact match near zero and overall F1 between 0.04 and 0.05. Adding the best retrieval configuration did not change that. The [case study](textwave/CaseStudy.MD) traces the gap to rerankers that favor topically similar passages over ones containing the answer, chunk boundaries that split answer spans, and differences between the retriever and reranker embeddings. The main lesson is that better retrieval does not automatically produce better answers, so the generation step needs its own evaluation.
+The original course results showed low answer quality across Mistral small, medium, and large models, with exact match near zero and overall F1 between 0.04 and 0.05, and adding the best retrieval configuration did not change it. A later review found two causes in the code rather than in retrieval.
+
+1. **The retrieved context never reached the model.** The line that added the passages to the prompt was commented out, so every run, including the retrieval augmented one, was effectively closed book. This is why the two settings scored almost the same.
+2. **The answer format did not match the references.** The prompt asked for full sentence answers while the dataset's reference answers are short, such as "yes" or "1921", and the scoring did not strip punctuation, so "Yes." did not match "yes".
+
+The generator now passes the retrieved passages and asks for short answers, and scoring follows the standard SQuAD normalization (lowercase, no punctuation or articles). These fixes have not yet been re-run against the Mistral API, so updated generation numbers are still to come. The [case study](textwave/CaseStudy.MD) records the original results.
 
 ## How it works
 
 1. **Preprocessing.** Articles are split into sentence based or fixed length chunks with configurable overlap.
 2. **Embedding and indexing.** Chunks are embedded with `all-MiniLM-L6-v2` and stored in a brute force, HNSW, or LSH FAISS index.
 3. **Reranking.** Candidates can be reordered with TF-IDF, bag of words, a cross-encoder, a hybrid, or a sequential reranker.
-4. **Generation.** `QAGeneratorMistral` answers from the retrieved context only, through the Mistral API.
-5. **Evaluation.** Scripts in `textwave/scripts/` compute MRR and precision at K for retrieval, and exact match and F1 by question difficulty for answers.
+4. **Generation.** `QAGeneratorMistral` sends the retrieved passages to a Mistral model and asks for a short answer drawn only from them. With no passages it answers closed book.
+5. **Evaluation.** Scripts in `textwave/scripts/` compute MRR and precision at K for retrieval, and SQuAD style exact match and F1 by question difficulty for answers.
 
 ## Running it
 

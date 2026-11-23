@@ -37,21 +37,29 @@ class QAGeneratorMistral:
             str: A generated answer string based only on the given context.
         """
         
+        context_block = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(context))
         combined_input = (
-            f"Question: {query}\n\n"
-            #f"Context: {', '.join(context)}\n\n"
-        ) # Combine query and context into a single prompt string.
+            (f"Context:\n{context_block}\n\n" if context else "")
+            + f"Question: {query}\nAnswer:"
+        ) # Combine the retrieved context (if any) and the query into a single prompt string.
 
         
+        style = ("Reply with the shortest answer possible, a few words copied from the context when you can. "
+                 "For yes or no questions, reply with only yes or no. "
+                 "Do not write a full sentence or explain your answer.")
+        if context: # Retrieval augmented: answer only from the retrieved passages.
+            system_prompt = ("Answer the question using only the provided context. " + style +
+                             " If the context does not contain the answer, reply with: unknown")
+        else: # Closed book: no passages were retrieved, so answer from general knowledge.
+            system_prompt = "Answer the question from your own knowledge. " + style.replace(" copied from the context when you can", "")
+
         chat_response = self.client.chat.complete(
             model=self.generator_model,
             temperature=self.temperature,
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "Provide clear, concise, and full-sentence answers."
-                    )
+                    "content": system_prompt
                 },
                 {
                     "role": "user",

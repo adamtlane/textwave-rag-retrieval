@@ -1,3 +1,5 @@
+import string
+import re
 import sys
 import os
 import csv
@@ -33,27 +35,37 @@ if not API_KEY:
 
 # Start the Utility Functions.
 
+def normalize_answer(text):
+    """
+    Lowercases, removes punctuation and the articles a, an, and the, and collapses
+    whitespace, following the standard SQuAD evaluation, so that "Yes." matches "yes".
+    """
+    text = text.lower()
+    text = "".join(ch for ch in text if ch not in set(string.punctuation))
+    text = re.sub(r"\b(a|an|the)\b", " ", text)
+    return " ".join(text.split())
+
 def exact_match(pred, gold):
     """
-    Check if the predicted answer exactly matches the gold answer (case and space insensitive).
+    Determines whether the predicted answer exactly matches the gold answer after normalization.
     """
-
-    return pred.strip().lower() == gold.strip().lower()
+    return normalize_answer(pred) == normalize_answer(gold)
 
 def compute_token_f1(pred, gold):
     """
-    Compute token-level F1 score between predicted and gold answers.
-    Tokenization is whitespace-based and case-insensitive.
+    Computes the F1 score between normalized predicted and gold answers at the token level.
+
+    Returns:
+        float: F1 score between 0.0 and 1.0
     """
-    pred_tokens = pred.lower().strip().split()
-    gold_tokens = gold.lower().strip().split()
+    pred_tokens = normalize_answer(pred).split()
+    gold_tokens = normalize_answer(gold).split()
 
     common = set(pred_tokens) & set(gold_tokens)
     overlap = sum(min(pred_tokens.count(w), gold_tokens.count(w)) for w in common)
 
     if overlap == 0:
         return 0.0
-    
     precision = overlap / len(pred_tokens)
     recall = overlap / len(gold_tokens)
     f1 = 2 * precision * recall / (precision + recall)
