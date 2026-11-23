@@ -1,0 +1,12 @@
+# Dataset files come from the CMU Question-Answer Dataset (see README); not redistributed here.
+textwave/storage/*.txt.clean
+textwave/qa_resources/question.tsv
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
